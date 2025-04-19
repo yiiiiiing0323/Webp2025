@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>景點觀光展覽資訊</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .search-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        #searchInput {
+            padding: 8px;
+            width: 300px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        table {
+            font-family: Arial, Helvetica, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        td, th {
+            border: 1px solid #ddd;
+            padding: 6px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #ddd;
+        }
+        th {
+            padding-top: 12px;
+            padding-bottom: 12px;
+            text-align: left;
+            background-color: #04AA6D;
+            color: white;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .pagination button {
+            padding: 8px 16px;
+            margin: 0 10px;
+            background-color: #04AA6D;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .pagination button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .page-info {
+            margin: 0 15px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>景點觀光展覽資訊</h1>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" >
+    </div>
+    
+    <table id="exhibitionTable">
+        <thead>
+            <tr>
+                <th>名稱</th>
+                <th>地點</th>
+                <th>票價</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <!-- 資料將在這裡動態載入 -->
+        </tbody>
+    </table>
+    
+    <div class="pagination">
+        <button id="prevBtn">上一頁</button>
+        <span id="pageInfo" class="page-info">第 0 頁 / 共 0 頁</span>
+        <button id="nextBtn">下一頁</button>
+    </div>
+
+    <script>
+        // 全局變量
+        var allData = [];          // 儲存從API獲取的所有原始資料
+        var filteredData = [];     // 儲存過濾後的資料
+        var currentPage = 1;       // 當前頁碼
+        var itemsPerPage = 10;     // 每頁顯示項目數
+
+        // DOM 元素
+        var searchInput = document.getElementById('searchInput');
+        var tableBody = document.getElementById('tableBody');
+        var prevBtn = document.getElementById('prevBtn');
+        var nextBtn = document.getElementById('nextBtn');
+        var pageInfo = document.getElementById('pageInfo');
+
+        // 初始化函式
+        function init() {
+            // 綁定事件監聽器 - 使用 'input' 事件實現實時搜尋
+            searchInput.addEventListener('input', filterData);
+            prevBtn.addEventListener('click', prevPage);
+            nextBtn.addEventListener('click', nextPage);
+            
+            // 載入資料
+            loadData();
+        }
+
+        // 從API載入資料 (使用XMLHttpRequest)
+        function loadData() {
+            var openUrl = "https://cloud.culture.tw/frontsite/trans/SearchShowAction.do?method=doFindTypeJ&category=6";
+            var xhr = new XMLHttpRequest();
+            
+            xhr.open('GET', openUrl, true);
+            xhr.send();
+            
+            xhr.onreadystatechange = function() {
+                if (this.readyState == 4 && this.status == 200) {
+                    allData = JSON.parse(this.responseText);
+                    filteredData = allData.slice();  // 複製陣列
+                    updateTable();
+                }
+            };
+        }
+
+        // 根據關鍵字過濾資料 (現在會即時觸發)
+        function filterData() {
+            var keyword = searchInput.value.trim().toLowerCase();
+            
+            if (keyword === '') {
+                filteredData = allData.slice();  // 沒有關鍵字，顯示全部資料
+            } else {
+                filteredData = allData.filter(function(item) {
+                    return item.title && item.title.toLowerCase().includes(keyword);
+                });
+            }
+            
+            currentPage = 1;  // 搜尋後回到第一頁
+            updateTable();
+        }
+
+        // 更新表格顯示
+        function updateTable() {
+            tableBody.innerHTML = '';  // 清空表格
+            
+            // 計算分頁資訊
+            var totalItems = filteredData.length;
+            var totalPages = Math.max(Math.ceil(totalItems / itemsPerPage), 1);
+            var startIndex = (currentPage - 1) * itemsPerPage;
+            var endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+            
+            // 更新分頁控制元件狀態
+            prevBtn.disabled = currentPage <= 1;
+            nextBtn.disabled = currentPage >= totalPages;
+            pageInfo.textContent = '第 ' + currentPage + ' 頁 / 共 ' + totalPages + ' 頁';
+            
+            // 顯示當前頁的資料
+            for (var i = startIndex; i < endIndex; i++) {
+                var item = filteredData[i];
+                var row = document.createElement('tr');
+                
+                // 處理可能缺少的資料
+                var title = item.title || '無資訊';
+                var location = '無資訊';
+                var price = '免費';
+                
+                if (item.showInfo && item.showInfo[0]) {
+                    location = item.showInfo[0].location || '無資訊';
+                    price = item.showInfo[0].price || '免費';
+                }
+                
+                // 建立表格行
+                row.innerHTML = '<td>' + title + '</td>' +
+                                '<td>' + location + '</td>' +
+                                '<td>' + price + '</td>';
+                
+                tableBody.appendChild(row);
+            }
+        }
+
+        // 上一頁
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                updateTable();
+            }
+        }
+
+        // 下一頁
+        function nextPage() {
+            var totalPages = Math.ceil(filteredData.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                updateTable();
+            }
+        }
+
+        // 當DOM完全載入後初始化應用
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
